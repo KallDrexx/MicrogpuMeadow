@@ -1,22 +1,34 @@
 ﻿using System.Net.Sockets;
+using MicrogpuMeadow.Common;
 using MicrogpuMeadow.Common.Operations;
+using MicrogpuMeadow.Tcp;
 
-var buffer = new List<byte>();
-
-var client = new Socket(SocketType.Stream, ProtocolType.Tcp);
-await client.ConnectAsync("127.0.0.1", 9123);
-
-var initializeOperation = new InitializeOperation
+using var client = new MicrogpuTcpClient("localhost", 9123);
+await client.ConnectAsync();
+await client.SendOperationAsync(new InitializeOperation {FrameBufferScale = 1});
+await client.SendOperationAsync(new DrawRectangleOperation<ColorRgb565>
 {
-    FrameBufferScale = 1
-};
+    StartX = 10,
+    StartY = 50,
+    Width = 100,
+    Height = 200,
+    Color = ColorRgb565.FromRgb888(255, 0, 0),
+});
 
-initializeOperation.Serialize(buffer);
-var lengthByte1 = (byte)(buffer.Count >> 8);
-var lengthByte2 = (byte)(buffer.Count & 0xFF);
+await client.SendOperationAsync(new DrawTriangleOperation<ColorRgb565>
+{
+    X0 = 200,
+    Y0 = 10,
+    X1 = 50,
+    Y1 = 150,
+    X2 = 400,
+    Y2 = 350,
+    Color = ColorRgb565.FromRgb888(0, 255, 0),
+});
 
-buffer.Insert(0, lengthByte1);
-buffer.Insert(1, lengthByte2);
-await client.SendAsync(buffer.ToArray(), SocketFlags.None);
+await client.SendOperationAsync(new PresentFramebufferOperation());
 
-while(true) {}
+while (true)
+{
+    await Task.Delay(1000);
+}
